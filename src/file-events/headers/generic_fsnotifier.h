@@ -68,5 +68,7 @@ private:
 
 u16string javaToNativeString(JNIEnv* env, jstring javaString);
 
+u16string utf8ToUtf16String(const char* string);
+
 // TODO Use a template for the server type?
 jobject wrapServer(JNIEnv* env, function<void*()> serverStarter);
