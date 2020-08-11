@@ -31,7 +31,7 @@ public class ReleasePlugin implements Plugin<Project> {
         });
 
         project.getPlugins().apply(UploadPlugin.class);
-        project.getPlugins().apply(PublishPlugin.class);
+        project.getPlugins().apply("gradlebuild.publish");
         project.setVersion(versions.getVersion());
 
         // Use authenticated snapshot/bintray repo while building a test distribution during snapshot/release

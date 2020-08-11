@@ -20,7 +20,7 @@ public class UploadPlugin implements Plugin<Project> {
 
     @Override
     public void apply(final Project project) {
-        project.getPlugins().apply(BasePublishPlugin.class);
+        project.getPlugins().apply("gradlebuild.publish-base");
         BintrayCredentials credentials = project.getExtensions().getByType(BintrayCredentials.class);
 
         project.getExtensions().configure(PublishingExtension.class, extension -> {
