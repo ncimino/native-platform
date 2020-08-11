@@ -1,5 +1,5 @@
 plugins {
-    id('java-gradle-plugin')
+    `kotlin-dsl`
 }
 
 repositories {
@@ -8,10 +8,10 @@ repositories {
 }
 
 dependencies {
-    implementation gradleApi()
-    implementation 'org.apache.httpcomponents.client5:httpclient5:5.0.1'
-    implementation 'com.google.guava:guava:28.2-jre'
-    implementation 'org.gradle:test-retry-gradle-plugin:1.1.8'
+    implementation(gradleApi())
+    implementation("org.apache.httpcomponents.client5:httpclient5:5.0.1")
+    implementation("com.google.guava:guava:28.2-jre")
+    implementation("org.gradle:test-retry-gradle-plugin:1.1.8")
 }
 
 java {
@@ -21,24 +21,25 @@ java {
 
 if (JavaVersion.current() < JavaVersion.VERSION_1_8) {
     // Need to use Java 8 on some older platforms
-    throw new UnsupportedOperationException("At least Java 8 is required to build native-platform. Earlier versions are not supported.")
+    throw UnsupportedOperationException("At least Java 8 is required to build native-platform. Earlier versions are not supported.")
 }
+
 
 gradlePlugin {
     plugins {
-        jni {
+        create("jni") {
             id = "gradlebuild.jni"
             implementationClass = "gradlebuild.JniPlugin"
         }
-        nativeComponent {
+        create("nativeComponent") {
             id = "gradlebuild.native-platform-component"
             implementationClass = "gradlebuild.NativePlatformComponentPlugin"
         }
-        freebsd {
+        create("freebsd") {
             id = "gradlebuild.freebsd"
             implementationClass = "gradlebuild.FreeBsdPlugin"
         }
-        ncurses {
+        create("ncurses") {
             id = "gradlebuild.ncurses"
             implementationClass = "gradlebuild.NcursesPlugin"
         }
