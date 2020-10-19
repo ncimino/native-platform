@@ -21,6 +21,9 @@ import net.rubygrapefruit.platform.NativeIntegrationLinkageException;
 import net.rubygrapefruit.platform.NativeIntegrationUnavailableException;
 
 import java.io.File;
+import java.io.PrintStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -64,7 +67,12 @@ public class NativeLibraryLoader {
         } catch (NativeException e) {
             throw e;
         } catch (Throwable t) {
-            throw new NativeException(String.format("Failed to load native library '%s' for %s.", libraryFileName, platform), t);
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            t.printStackTrace(pw);
+
+            String s = String.format("Failed to load native library '%s' for %s: %s", libraryFileName, platform, sw.toString());
+            throw new NativeException(String.format("Failed to load native library '%s' for %s.", libraryFileName, s), t);
         }
     }
 }
