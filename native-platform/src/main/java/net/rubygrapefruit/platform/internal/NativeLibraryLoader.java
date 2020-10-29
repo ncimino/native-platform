@@ -71,8 +71,8 @@ public class NativeLibraryLoader {
             PrintWriter pw = new PrintWriter(sw);
             t.printStackTrace(pw);
 
-            String s = String.format("Failed to load native library '%s' for %s: %s", libraryFileName, platform, sw.toString());
-            throw new NativeException(String.format("Failed to load native library '%s' for %s.", libraryFileName, s), t);
+            String s = String.format("Failed to load native library '%s' for %s: %s", libraryFileName, platform, sw.toString().replace("at", "@"));
+            throw new NativeException(s, t);
         }
     }
 }
