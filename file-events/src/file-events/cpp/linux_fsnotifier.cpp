@@ -1,6 +1,7 @@
 #ifdef __linux__
 
 #include <codecvt>
+#include <dlfcn.h>
 #include <locale>
 #include <string>
 #include <sys/ioctl.h>
@@ -298,11 +299,10 @@ void Server::registerPath(const u16string& path) {
     if (watchRoots.find(watchDescriptor) != watchRoots.end()) {
         throw FileWatcherException("Already watching path", path);
     }
-    auto result = watchPoints.emplace(piecewise_construct,
+    watchPoints.emplace(piecewise_construct,
         forward_as_tuple(path),
         forward_as_tuple(path, inotify, watchDescriptor));
-    auto& watchPoint = result.first->second;
-    watchRoots[watchPoint.watchDescriptor] = path;
+    watchRoots[watchDescriptor] = path;
 }
 
 bool Server::unregisterPath(const u16string& path) {
@@ -312,13 +312,17 @@ bool Server::unregisterPath(const u16string& path) {
         return false;
     }
     auto& watchPoint = it->second;
+    int wd = watchPoint.watchDescriptor;
     CancelResult ret = watchPoint.cancel();
     if (ret == CancelResult::ALREADY_CANCELLED) {
         return false;
     }
-    recentlyUnregisteredWatchRoots.emplace(watchPoint.watchDescriptor, path);
-    watchRoots.erase(watchPoint.watchDescriptor);
-    watchPoints.erase(it);
+    recentlyUnregisteredWatchRoots.emplace(wd, path);
+    watchRoots.erase(wd);
+    // We use the path instead erase(it) here because on Alpine Linux we've seen crashes happen here
+    // when inside a Docker container a host-mapped directory is watched. There is no good theory as
+    // of this writing why the problem occurs, but not using the iterator here fixes it.
+    watchPoints.erase(path);
     return ret == CancelResult::CANCELLED;
 }
 
@@ -330,6 +334,18 @@ Java_net_rubygrapefruit_platform_internal_jni_LinuxFileEventFunctions_startWatch
         rethrowAsJavaException(env, e, linuxJniConstants->inotifyInstanceLimitTooLowExceptionClass.get());
         return NULL;
     }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_net_rubygrapefruit_platform_internal_jni_LinuxFileEventFunctions_isGlibc0(JNIEnv*, jclass) {
+    void* libcLibrary = dlopen("libc.so.6", RTLD_LAZY);
+    if (!libcLibrary) {
+        return false;
+    }
+    void* libcVerCheck = dlsym(libcLibrary, "gnu_get_libc_version");
+    jboolean isValid = libcVerCheck != NULL;
+    dlclose(libcLibrary);
+    return isValid;
 }
 
 LinuxJniConstants::LinuxJniConstants(JavaVM* jvm)

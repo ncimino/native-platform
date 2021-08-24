@@ -193,6 +193,29 @@ class BasicFileEventFunctionsTest extends AbstractFileEventFunctionsTest {
         expectEvents change(REMOVED, removedDir)
     }
 
+    @IgnoreIf({ Platform.current().linux })
+    def "can detect hierarchy removed"() {
+        given:
+        def removedDir = new File(rootDir, "removed")
+        assert removedDir.mkdirs()
+        def removedSubDir = new File(removedDir, "sub-dir")
+        assert removedSubDir.mkdirs()
+        def removedSubSubDir = new File(removedSubDir, "sub-sub-dir")
+        assert removedSubSubDir.mkdirs()
+        def removedFile = new File(removedSubSubDir, "file.txt")
+        createNewFile(removedFile)
+        startWatcher(rootDir)
+
+        when:
+        removedDir.deleteDir()
+
+        then:
+        expectEvents byPlatform(
+            (WINDOWS):   [change(MODIFIED, removedFile), change(REMOVED, removedFile), change(REMOVED, removedSubSubDir), change(REMOVED, removedSubDir), change(REMOVED, removedDir)],
+            (OTHERWISE): [change(REMOVED, removedFile), change(REMOVED, removedSubSubDir), change(REMOVED, removedSubDir), change(REMOVED, removedDir)]
+        )
+    }
+
     def "can detect file modified"() {
         given:
         def modifiedFile = new File(rootDir, "modified.txt")
@@ -297,10 +320,7 @@ class BasicFileEventFunctionsTest extends AbstractFileEventFunctionsTest {
         sourceFile.renameTo(targetFile)
 
         then:
-        expectEvents byPlatform(
-            (WINDOWS):   [change(REMOVED, sourceFile), change(CREATED, targetFile), optionalChange(MODIFIED, targetFile)],
-            (OTHERWISE): [change(REMOVED, sourceFile), change(CREATED, targetFile)]
-        )
+        expectEvents change(REMOVED, sourceFile), change(CREATED, targetFile)
     }
 
     @IgnoreIf({ Platform.current().linux })
@@ -317,10 +337,7 @@ class BasicFileEventFunctionsTest extends AbstractFileEventFunctionsTest {
         sourceFile.renameTo(targetFile)
 
         then:
-        expectEvents byPlatform(
-            (WINDOWS):   [change(REMOVED, sourceFile), change(CREATED, targetFile), change(MODIFIED, subDir), optionalChange(MODIFIED, targetFile)],
-            (OTHERWISE): [change(REMOVED, sourceFile), change(CREATED, targetFile)]
-        )
+        expectEvents change(REMOVED, sourceFile), change(CREATED, targetFile)
     }
 
     def "can detect file moved out"() {
@@ -349,14 +366,10 @@ class BasicFileEventFunctionsTest extends AbstractFileEventFunctionsTest {
         startWatcher(rootDir)
 
         when:
-        // On Windows we sometimes get a MODIFIED event after CREATED for some reason
         sourceFileOutside.renameTo(targetFileInside)
 
         then:
-        expectEvents byPlatform(
-            (WINDOWS):   [change(CREATED, targetFileInside), optionalChange(MODIFIED, targetFileInside)],
-            (OTHERWISE): [change(CREATED, targetFileInside)]
-        )
+        expectEvents change(CREATED, targetFileInside)
     }
 
     @Issue("https://github.com/gradle/native-platform/issues/193")
@@ -454,7 +467,7 @@ class BasicFileEventFunctionsTest extends AbstractFileEventFunctionsTest {
         startWatcher(rootDir)
 
         when:
-        watcher.startWatching(rootDir)
+        startWatching(rootDir)
 
         then:
         def ex = thrown NativeException
@@ -468,7 +481,7 @@ class BasicFileEventFunctionsTest extends AbstractFileEventFunctionsTest {
         startWatcher()
 
         expect:
-        !watcher.stopWatching(rootDir)
+        !stopWatching(rootDir)
 
         expectLogMessage(INFO, "Path is not watched: ${rootDir.absolutePath}")
     }
@@ -476,10 +489,10 @@ class BasicFileEventFunctionsTest extends AbstractFileEventFunctionsTest {
     def "can un-watch watched directory twice"() {
         given:
         startWatcher(rootDir)
-        watcher.stopWatching(rootDir)
 
         expect:
-        !watcher.stopWatching(rootDir)
+        stopWatching(rootDir)
+        !stopWatching(rootDir)
 
         expectLogMessage(INFO, "Path is not watched: ${rootDir.absolutePath}")
     }
@@ -490,7 +503,7 @@ class BasicFileEventFunctionsTest extends AbstractFileEventFunctionsTest {
         startWatcher(rootDir)
 
         expect:
-        watcher.stopWatching(rootDir)
+        stopWatching(rootDir)
 
         when:
         createNewFile(file)
@@ -602,10 +615,10 @@ class BasicFileEventFunctionsTest extends AbstractFileEventFunctionsTest {
 
         LOGGER.info("> Starting first watcher")
         def firstWatcher = startNewWatcher(firstQueue)
-        firstWatcher.startWatching(firstRoot)
+        firstWatcher.startWatching([firstRoot])
         LOGGER.info("> Starting second watcher")
         def secondWatcher = startNewWatcher(secondQueue)
-        secondWatcher.startWatching(secondRoot)
+        secondWatcher.startWatching([secondRoot])
         LOGGER.info("> Watchers started")
 
         when:
@@ -829,7 +842,7 @@ class BasicFileEventFunctionsTest extends AbstractFileEventFunctionsTest {
 
         // Restart watching freshly recreated directory on platforms that auto-unregister on deletion
         if (!Platform.current().macOs) {
-            watcher.startWatching(watchedDir)
+            watcher.startWatching([watchedDir])
         }
         // Ignore events received during setup
         waitForChangeEventLatency()
